@@ -50,6 +50,7 @@ class Connection(Thread):
         self.event_handler = event_handler
         self.recv_msg = Queue()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(1)
         self.logger = logging.getLogger('connection_logger')
         self.thread_running = False
 
@@ -164,11 +165,9 @@ class ConnectionClient(Connection):
         self.start()
 
 
-class Master(Thread):
+class Master:
 
     def __init__(self, port=MAIN_PORT):
-        super(Master, self).__init__()
-
         # PRIVATE
         self.__is_gathering_connections = False
         self.__gather_connections_thread = None
@@ -224,6 +223,7 @@ class Master(Thread):
         def __init__(self, peer, address, logger, event_handler):
             Thread.__init__(self)
             self.socket = peer
+            self.socket.settimeout(1)
             self.address = address
             self.logger = logger
             self.event_handler = event_handler
@@ -240,67 +240,9 @@ class Master(Thread):
             try:
                 self.peers[int(to)][0].send(json.dumps(msg))
             except Exception as e:
-                print("[!] could not send message to " + str(to) + " msg -> " + str(msg))
+                logging.error("[!] could not send message to " + str(to) + " msg -> " + str(msg))
 
     def close(self):
         self.socket.close()
-
-
-def main():
-    """
-    Simple test function
-    Defines an example eventHandler.
-    As this was initally written for communication with multiple drones the example
-    is written with an "drone" object which is just a array for testing.
-
-    :return:
-    """
-
-    class EventHandlerTest:
-        def __init__(self, drone=None):
-            if drone is None:
-                drone = []
-            self.drone = drone
-
-        def start(self, msg):
-            self.drone.append("start")
-
-        def fly_to(self, msg):
-            self.drone.append("ok_for {}".format(msg["fly_to"]))
-
-        def land(self, msg):
-            self.drone.append("land")
-
-    master = Master()
-    event_handler = EventHandlerTest()
-    slave = ConnectionClient(event_handler)
-
-    master.start_gathering_connections()
-    slave.connect('127.0.0.1')
-    time.sleep(0.2)
-    master.stop_gathering_connections()
-    time.sleep(0.2)
-
-    master.connections[0][0].send(json.dumps({"event": "start", "content": "nix"}))
-    master.connections[0][0].send(json.dumps({"event": "no event", "content": "this is random text"}))
-    slave.send(create_message("test", "land", 0))
-    time.sleep(2)
-    print(slave.event_handler.drone)
-
-    print(slave.get(2))
-    try:
-        print(slave.get(2))
-    except Empty:
-        print("The Queue is empty, no new message")
-
-    time.sleep(2)
-    print("CLOSING SOCKETS")
-    slave.close()
-    master.close()
-
-    time.sleep(2)
-    print("ENDING PROGRAM")
-
-
-if __name__ == '__main__':
-    main()
+        for peer in self.connections:
+            peer[2].close()
