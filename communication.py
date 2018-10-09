@@ -7,7 +7,6 @@ Desc:
 import logging
 import socket
 import json
-from Queue import Empty
 from threading import Thread
 from multiprocessing import JoinableQueue as Queue
 import time
@@ -124,7 +123,7 @@ class Connection(Thread):
 
 class ConnectionClient(Connection):
 
-    def __init__(self, event_handler, log_file="connection.log"):
+    def __init__(self, event_handler, log_file="connection.log", log_level=logging.DEBUG):
         super(Connection, self).__init__()
         self.thread_running = False
         self.peer_number = None
@@ -135,11 +134,11 @@ class ConnectionClient(Connection):
         self.recv_msg = Queue()
 
         self.logger = logging.getLogger(log_file.split(".")[0] if log_file.endswith(".log") else "connection_logger")
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(log_level)
         fh = logging.FileHandler(log_file)
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(log_level)
         ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
+        ch.setLevel(log_level)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         ch.setFormatter(formatter)
         fh.setFormatter(formatter)
@@ -167,7 +166,7 @@ class ConnectionClient(Connection):
 
 class Master:
 
-    def __init__(self, port=MAIN_PORT):
+    def __init__(self, port=MAIN_PORT, log_level=logging.DEBUG):
         # PRIVATE
         self.__is_gathering_connections = False
         self.__gather_connections_thread = None
@@ -183,11 +182,11 @@ class Master:
         self.is_running = True
 
         self.logger = logging.getLogger('master_logger')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(log_level)
         fh = logging.FileHandler('master.log')
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(log_level)
         ch = logging.StreamHandler()
-        ch.setLevel(logging.ERROR)
+        ch.setLevel(log_level)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
         ch.setFormatter(formatter)
         fh.setFormatter(formatter)
@@ -198,11 +197,9 @@ class Master:
     def start_gathering_connections(self):
         if not self.__is_gathering_connections:
             self.__is_gathering_connections = True
-            self.socket.settimeout(1)
             self.__gather_connections_thread = Thread(target=self.__gather_connections).start()
 
     def stop_gathering_connections(self):
-        self.socket.settimeout(None)
         self.__is_gathering_connections = False
 
     def __gather_connections(self):
@@ -243,6 +240,8 @@ class Master:
                 logging.error("[!] could not send message to " + str(to) + " msg -> " + str(msg))
 
     def close(self):
+        self.stop_gathering_connections()
+
         self.socket.close()
         for peer in self.connections:
             peer[2].close()
