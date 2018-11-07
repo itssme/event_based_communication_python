@@ -62,6 +62,13 @@ class Connection(Thread):
         return self.recv_msg.get(timeout=timeout)
 
     def process_message(self, msg_array):
+        """
+        Takes an array of messages and calls the callback function for each event or puts the msg in the queue if
+        there is no corresponding callback function.
+
+        :param msg_array: json
+        :return: None
+        """
         while msg_array:
             msg = msg_array.pop(0)
             try:
@@ -110,12 +117,23 @@ class Connection(Thread):
                 pass  # Ignore timeouts
 
     def send(self, msg):
+        """
+        Sends a message to the master
+
+        :param msg: str
+        :return: None
+        """
         try:
             self.socket.send(msg)
         except Exception as e:
             self.logger.fatal("[!] ERROR COULD NOT SEND MESSAGE -> " + str(e) + " MSG -> " + str(msg))
 
     def close(self):
+        """
+        Closes socket and stops thread
+
+        :return: None
+        """
         self.logger.info("closing socket")
         self.thread_running = False
         self.socket.close()
@@ -147,6 +165,15 @@ class ConnectionClient(Connection):
         self.logger.info("setup done")
 
     def connect(self, ip, port=MAIN_PORT):
+        """
+        Connect to the master
+
+        :param ip: str
+                   ip of the master peer
+        :param port: int
+                     port of the connection (default: 3000)
+        :return: None
+        """
         connected = False
         while not connected:
             try:
@@ -195,11 +222,21 @@ class Master:
         self.logger.info("setup done")
 
     def start_gathering_connections(self):
+        """
+        Start accepting new connections
+
+        :return: None
+        """
         if not self.__is_gathering_connections:
             self.__is_gathering_connections = True
             self.__gather_connections_thread = Thread(target=self.__gather_connections).start()
 
     def stop_gathering_connections(self):
+        """
+        Stop accepting new connections
+
+        :return: None
+        """
         self.__is_gathering_connections = False
 
     def __gather_connections(self):
@@ -228,10 +265,20 @@ class Master:
             self.recv_msg = Queue()
 
     class PeerEventHandler:
+        """"
+        Handles redirects from master to other peers
+        """
+
         def __init__(self, peers):
             self.peers = peers
 
         def to(self, msg):
+            """
+            Redirects a message
+
+            :param msg: json
+            :return: None
+            """
             to = msg["to"]
             msg.pop("to")
             try:
@@ -240,6 +287,11 @@ class Master:
                 logging.error("[!] could not send message to " + str(to) + " msg -> " + str(msg))
 
     def close(self):
+        """
+        Closes all the connection
+
+        :return: None
+        """
         self.stop_gathering_connections()
 
         self.socket.close()
