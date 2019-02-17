@@ -106,7 +106,7 @@ class Connection(Thread):
                             try:
                                 msg[i] = json.loads(msg[i])
                             except ValueError:
-                                self.logger.fatal("still got an invalid messages after split -> \"{]\"".format(msg[i]))
+                                self.logger.fatal("still got an invalid messages after split -> \"{}\"".format(msg[i]))
                                 del msg[i]
 
                         self.logger.info("messages after msg extraction -> \"{}\"".format(str(msg)))
